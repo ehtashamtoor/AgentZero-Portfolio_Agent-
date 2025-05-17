@@ -14,9 +14,7 @@ sqlalchemy
 uvicorn
 fastapi[standard]
 langgraph-cli[inmem]
-faiss-cpu
 qdrant-client
-langgraph-qdrant
 pydantic
 asyncpg
 
