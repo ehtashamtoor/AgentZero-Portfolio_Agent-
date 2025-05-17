@@ -16,6 +16,7 @@ fastapi[standard]
 langgraph-cli[inmem]
 qdrant-client
 langchain_qdrant
+langchain_huggingface
 pydantic
 asyncpg
 

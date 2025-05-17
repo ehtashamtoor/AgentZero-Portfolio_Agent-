@@ -1,11 +1,9 @@
-import os, asyncio, time, random, sys, json
+import os, asyncio, random, sys
 from dotenv import load_dotenv
 
-from langchain_openai import ChatOpenAI, OpenAIEmbeddings
-from langchain_core.messages import SystemMessage, HumanMessage, AIMessage, FunctionMessage
+from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
 
-from langgraph.graph import StateGraph, START, END, MessagesState
-from langgraph.graph.state import CompiledStateGraph
+from langgraph.graph import StateGraph, START
 from langgraph.graph.message import add_messages
 from typing import Annotated
 from langchain_core.messages import BaseMessage
@@ -15,13 +13,9 @@ from langgraph.store.postgres import AsyncPostgresStore
 from langchain_core.prompts import ChatPromptTemplate, SystemMessagePromptTemplate
 from fastapi import FastAPI, HTTPException
 from langchain_core.prompts import ChatPromptTemplate
-from langchain_google_genai import ChatGoogleGenerativeAI, GoogleGenerativeAIEmbeddings
-from langgraph.checkpoint.memory import MemorySaver
-from langchain_community.document_loaders import PyMuPDFLoader
-from langchain_text_splitters import RecursiveCharacterTextSplitter
+from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_qdrant import Qdrant
 from qdrant_client import QdrantClient
-from qdrant_client.models import Distance, VectorParams
 from langchain_huggingface import HuggingFaceEmbeddings
 from psycopg_pool import AsyncConnectionPool
 import psycopg
