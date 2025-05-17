@@ -15,6 +15,7 @@ uvicorn
 fastapi[standard]
 langgraph-cli[inmem]
 qdrant-client
+langchain_qdrant
 pydantic
 asyncpg
 
