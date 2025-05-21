@@ -23,6 +23,7 @@ from fastapi import FastAPI, HTTPException
 from contextlib import asynccontextmanager
 from psycopg.rows import dict_row
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
+from fastapi.middleware.cors import CORSMiddleware
 
 os.system("")
 load_dotenv()
@@ -31,6 +32,10 @@ if sys.platform == "win32":
     asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
     
 DB_URI = os.getenv("SUPABASE_DB_URL")
+origins = [
+    "http://localhost",
+    "http://localhost:5173",
+]
 
 # Class of different styles to be used in terminal
 class style:
@@ -180,7 +185,9 @@ def tell_joke() -> str:
 def send_cv() -> str:
     """Provide Ehtasham Toor’s latest resume/CV link when the user requests his CV or resume."""
     
-    return "Here’s Ehtasham Toor’s CV: (https://drive.google.com/uc?export=download&id=1fHBpB4roJ4gAgmXbmzoqna28yt7kxhvx)"
+    return """You can download his CV using the link below:
+
+    👉 [Download CV (PDF)](https://drive.google.com/uc?export=download&id=1fHBpB4roJ4gAgmXbmzoqna28yt7kxhvx)"""
 
 def retrieve_profile_info(query: str) -> str:
     """Use this tool to answer any question about Ehtasham Toor’s background, skills, experience, achievements, and career."""
@@ -328,6 +335,13 @@ app = FastAPI(
     title="Agent Zero",
     description="An AgentZero API to ask questions about Ehtasham Toor.",
     lifespan=lifespan,
+)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],  # Allow all HTTP methods
+    allow_headers=["*"],  # Allow all headers
 )
 
 class QueryRequest(BaseModel):

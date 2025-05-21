@@ -1,14 +1,14 @@
-openai
-httpx
+# openai
+# httpx
 python-dotenv
 langgraph
 langchain_core
-langchain_openai
+# langchain_openai
 langchain_community
 psycopg2
 psycopg-pool
 langchain_google_genai
-langgraph-checkpoint-postgres
+# langgraph-checkpoint-postgres
 psycopg[binary]
 sqlalchemy
 uvicorn
