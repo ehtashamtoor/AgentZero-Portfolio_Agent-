@@ -21,10 +21,11 @@ WORKDIR /app
 # Copy your code to the container
 COPY . .
 
+RUN pip install --no-cache-dir torch==2.2.2+cpu -f https://download.pytorch.org/whl/cpu/torch_stable.html
+
 # Install Python dependencies
 RUN pip install --no-cache-dir --upgrade pip \
     && pip install --no-cache-dir -r requirements.txt --root-user-action=ignore
-
 
 # Expose the port FastAPI runs on
 EXPOSE 8000
