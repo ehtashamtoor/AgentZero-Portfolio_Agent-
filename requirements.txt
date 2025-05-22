@@ -1,5 +1,3 @@
-# openai
-# httpx
 python-dotenv
 langgraph
 langchain_core
