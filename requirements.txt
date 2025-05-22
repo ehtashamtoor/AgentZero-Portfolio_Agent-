@@ -13,6 +13,7 @@ langgraph-cli[inmem]
 qdrant-client
 langchain_qdrant
 langchain_huggingface
+langgraph-checkpoint-postgres
 pydantic
 asyncpg
 torch==2.2.2+cpu
