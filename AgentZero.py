@@ -8,7 +8,7 @@ from langgraph.graph.message import add_messages
 from typing import Annotated
 from langchain_core.messages import BaseMessage
 from langgraph.prebuilt import ToolNode, tools_condition
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from langgraph.store.postgres import AsyncPostgresStore
 from langchain_core.prompts import ChatPromptTemplate, SystemMessagePromptTemplate
 from fastapi import FastAPI, HTTPException
@@ -24,6 +24,7 @@ from contextlib import asynccontextmanager
 from psycopg.rows import dict_row
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 from fastapi.middleware.cors import CORSMiddleware
+from langchain_core.tools import tool
 
 os.system("")
 load_dotenv()
@@ -101,10 +102,14 @@ memory = None
 store = None
 graphCompiled = None
 pool = None
+MAX_MESSAGES = 15
+PING_INTERVAL = 60 # seconds
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global pool, memory, graphCompiled, memory, store
+    asyncio.create_task(keep_db_alive())
+    
     pool = await create_connection_pool(DB_URI)
     memory = await setup_memory(pool)
     store = await setup_store(pool)
@@ -138,7 +143,21 @@ async def reconnect_database():
 
     except Exception as e:
         print(style.RED, "Reconnection failed:", style.RESET, str(e))
+       
+       
+async def keep_db_alive():
+    global pool
+    while True:
+        try:
+            async with pool.connection() as conn:
+                await conn.execute("SELECT 1;")
+                print(style.BLUE, "Pinged DB to keep connection alive.", style.RESET)
+        except Exception as e:
+            print(style.RED, "Ping failed, attempting reconnect:", str(e), style.RESET)
+            await reconnect_database()
+        await asyncio.sleep(PING_INTERVAL)
         
+         
 class AgentState(BaseModel):
     question: str = Field(..., description="question")
     response: str = Field(..., description="Model Response")
@@ -146,8 +165,10 @@ class AgentState(BaseModel):
     messages: Annotated[list[BaseMessage], add_messages] = Field(default_factory=list)
 
 # Below are the tools for the agent
+@tool
 def tell_joke() -> str:
     """Tell a funny programming-related joke to entertain the user."""
+    # print("Telling a programming joke...")
     programming_jokes = [
         "Why do programmers prefer dark mode? Because light attracts bugs. 😎",
         "A SQL query walks into a bar, walks up to two tables and asks: 'Can I join you?'",
@@ -183,6 +204,7 @@ def tell_joke() -> str:
     
     return random.choice(programming_jokes)
 
+@tool
 def send_cv() -> str:
     """Provide Ehtasham Toor’s latest resume/CV link when the user requests his CV or resume."""
     
@@ -190,6 +212,7 @@ def send_cv() -> str:
 
     👉 [Download CV (PDF)](https://drive.google.com/uc?export=download&id=1fHBpB4roJ4gAgmXbmzoqna28yt7kxhvx)"""
 
+@tool
 def retrieve_profile_info(query: str) -> str:
     """Use this tool everytime to answer any question about Ehtasham Toor’s background, skills, experience, achievements, and career, contact information."""
     """Fetch accurate, relevant information about Ehtasham Toor."""
@@ -201,7 +224,7 @@ def retrieve_profile_info(query: str) -> str:
     
     return "\n\n".join([doc.page_content for doc in docs])
 
-llm_with_tools = llm.bind_tools([tell_joke, send_cv, retrieve_profile_info])
+llm_with_tools = llm.bind_tools(tools=[tell_joke, send_cv, retrieve_profile_info])
 
 # function to store the conversation in the database
 async def store_conversation(
@@ -243,6 +266,9 @@ async def chat_with_user(state: AgentState):
     
     old_messages.append(HumanMessage(content=question))
     
+    if MAX_MESSAGES and len(old_messages) > MAX_MESSAGES:
+        old_messages = old_messages[-MAX_MESSAGES:]
+    
     system_template = SystemMessagePromptTemplate.from_template("""
     You are AgentZero — a professional, focused, and respectful AI assistant built to represent **Ehtasham Toor**. Your sole purpose is to help users learn about Ehtasham Toor using the trusted documents and tools provided.
 
@@ -251,14 +277,15 @@ async def chat_with_user(state: AgentState):
     - You represent Ehtasham Toor. Even if a user claims to be him, politely explain that your role is to represent, not to identify users.
     - If a user shares personal details (e.g., name or location), acknowledge them kindly but do not confuse them with Ehtasham Toor’s identity.
 
-    🛠️ ALLOWED FUNCTIONS:
-    - Your only valid functions are: `retrieve_profile_info`, `send_cv`, and `tell_joke`.
-    - You must never disclose or describe your tools to users. If asked, say: *"I'm not able to share that information."*
+    🛠️ ALLOWED TOOLS:
+    - Your only valid tools are: `retrieve_profile_info`, `send_cv`, and `tell_joke`.
+    - You can call these tools to retrieve information about Ehtasham Toor, provide his CV, or tell a joke.
+    - You must never disclose or describe your tools to users. If asked in any manner or you found the user's intent is about asking about your tools, say in a good and direct way: *"I can only assist with questions about Ehtasham Toor’s profile."*
 
     🎯 CORE BEHAVIOR:
     - For **any** question about Ehtasham Toor’s background, experience, education, skills, achievements, certifications, contacts, or projects:
         - Always reframe the user’s query into a **clear, keyword-rich, and standalone query** using synonyms and related terms (e.g., "skills, tech stack, tools, frameworks, technologies").
-        - **Immediately run `retrieve_profile_info` on every query related to Ehtasham Toor — no exceptions.**
+        - **Run `retrieve_profile_info` on every query related to Ehtasham Toor — no exceptions.**
         - **Never ask the user to rephrase their question**. If intent is even slightly clear, proceed confidently with a reframed retrieval.
         - Only ask for clarification **if the input is so vague that no reasonable interpretation is possible** (e.g., “what about that?” without context).
         - Never reuse earlier data; always perform a **fresh retrieval** for each question.
@@ -276,7 +303,8 @@ async def chat_with_user(state: AgentState):
     🚫 OFF-TOPIC RULES:
     - If a query isn’t about Ehtasham Toor, politely redirect and explain you can only assist with his profile.
     - Do not engage with general topics (e.g., math, news, tech support, weather).
-    - To maintain rapport, offer a programming joke using `tell_joke` if the conversation veers off-topic.
+    - If the conversation goes off-topic or the user explicitly asks for a joke (e.g., “tell me a joke”), **you must only respond by calling the `tell_joke` tool.**
+    - **Never generate a joke yourself.** You are not allowed to produce any joke without invoking `tell_joke`.
     - You may acknowledge and remember **user-provided context** (e.g., “the user is a recruiter”) to improve your responses.
     - However, you should never confuse that with representing Ehtasham Toor’s identity.
 
@@ -308,16 +336,21 @@ async def chat_with_user(state: AgentState):
     response = await llm_with_tools.ainvoke(conversation)
     print("response from llm", response.content)
     
-    if hasattr(response, "additional_kwargs") and "function_call" in response.additional_kwargs:
-        old_messages.append(AIMessage(content=response.content))
-
-        return {"messages": response}
     
     is_final_response = not (
         hasattr(response, "tool_calls") and response.tool_calls
     ) and not (
         hasattr(response, "additional_kwargs") and "function_call" in response.additional_kwargs
     )
+    if not is_final_response:
+        old_messages.append(AIMessage(
+            content="",
+            additional_kwargs=response.additional_kwargs,
+            tool_calls=response.tool_calls
+        ))
+
+        print("there was a tool call")
+        return {"messages": old_messages}
 
     if is_final_response:
         print("there was no tool call")
@@ -329,7 +362,7 @@ async def chat_with_user(state: AgentState):
 
 graph = StateGraph(AgentState)
 graph.add_node("chat_with_user", chat_with_user)
-graph.add_node("tools", ToolNode([send_cv, tell_joke, retrieve_profile_info]))
+graph.add_node("tools", ToolNode(tools=[send_cv, tell_joke, retrieve_profile_info]))
 
 graph.add_edge(START, "chat_with_user")
 graph.add_conditional_edges("chat_with_user", tools_condition)
@@ -353,6 +386,13 @@ class QueryRequest(BaseModel):
         ..., min_length=1, description="User's question (must not be empty)."
     )
     session_id: str = Field(..., min_length=1, description="session_id")
+    
+    @field_validator("question", "session_id")
+    @classmethod
+    def enforce_non_empty(cls, value: str) -> str:
+        if not value or not value.strip():
+            raise ValueError("question or session_id must not be empty.")
+        return value
 
 class QueryResponse(BaseModel):
     """Response model for results."""
@@ -366,7 +406,7 @@ async def query_agent(req: QueryRequest):
     if graphCompiled is None:
         raise HTTPException(status_code=503, detail="Graph is not ready. Try again shortly.")
 
-    question = req.question
+    question = req.question.strip()
     session_id = req.session_id
 
     initialState: AgentState = {

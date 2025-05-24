@@ -94,3 +94,6 @@ vectorstore = Qdrant(
 
 vectorstore.add_documents(tagged_docs)
 # vectorstore.add_documents(splits)
+
+
+
