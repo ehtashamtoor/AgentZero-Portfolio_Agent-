@@ -103,7 +103,7 @@ store = None
 graphCompiled = None
 pool = None
 MAX_MESSAGES = 15
-PING_INTERVAL = 60 # seconds
+PING_INTERVAL = 90 # seconds
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
