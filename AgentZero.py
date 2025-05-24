@@ -16,7 +16,7 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain_google_genai import ChatGoogleGenerativeAI, GoogleGenerativeAIEmbeddings
 from langchain_qdrant import Qdrant
 from qdrant_client import QdrantClient
-from langchain_huggingface import HuggingFaceEmbeddings
+# from langchain_huggingface import HuggingFaceEmbeddings
 from psycopg_pool import AsyncConnectionPool
 import psycopg
 from fastapi import FastAPI, HTTPException
