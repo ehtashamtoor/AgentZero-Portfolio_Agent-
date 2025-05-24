@@ -75,13 +75,13 @@ if not qdrant.collection_exists("agentzero-docs"):
     print("Creating collection...")
     qdrant.create_collection(
         collection_name="agentzero-docs",
-        vectors_config=VectorParams(size=384, distance=Distance.COSINE)
+        vectors_config=VectorParams(size=768, distance=Distance.COSINE)
     )
 
 
-# embeddings = GoogleGenerativeAIEmbeddings(model="models/gemini-embedding-exp-03-07")
+embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-001")
 # embeddings = VertexAIEmbeddings(model="text-embedding-004")
-embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
+# embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
 
 # all-mpnet-base-v2
 

@@ -13,7 +13,7 @@ from langgraph.store.postgres import AsyncPostgresStore
 from langchain_core.prompts import ChatPromptTemplate, SystemMessagePromptTemplate
 from fastapi import FastAPI, HTTPException
 from langchain_core.prompts import ChatPromptTemplate
-from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_google_genai import ChatGoogleGenerativeAI, GoogleGenerativeAIEmbeddings
 from langchain_qdrant import Qdrant
 from qdrant_client import QdrantClient
 from langchain_huggingface import HuggingFaceEmbeddings
@@ -57,7 +57,9 @@ qdrant = QdrantClient(
     api_key=os.getenv("QDRANT_API_KEY")
 )
 
-embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
+# embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
+
+embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-001")
 
 vectorstore = Qdrant(
     client=qdrant,
@@ -137,7 +139,6 @@ async def reconnect_database():
     except Exception as e:
         print(style.RED, "Reconnection failed:", style.RESET, str(e))
         
-        
 class AgentState(BaseModel):
     question: str = Field(..., description="question")
     response: str = Field(..., description="Model Response")
@@ -190,7 +191,7 @@ def send_cv() -> str:
     👉 [Download CV (PDF)](https://drive.google.com/uc?export=download&id=1fHBpB4roJ4gAgmXbmzoqna28yt7kxhvx)"""
 
 def retrieve_profile_info(query: str) -> str:
-    """Use this tool to answer any question about Ehtasham Toor’s background, skills, experience, achievements, and career."""
+    """Use this tool everytime to answer any question about Ehtasham Toor’s background, skills, experience, achievements, and career, contact information."""
     """Fetch accurate, relevant information about Ehtasham Toor."""
     print("Retrieving profile info for query:", query)
     
@@ -255,26 +256,27 @@ async def chat_with_user(state: AgentState):
     - You must never disclose or describe your tools to users. If asked, say: *"I'm not able to share that information."*
 
     🎯 CORE BEHAVIOR:
-    - For **any** question about Ehtasham Toor’s background, experience, education, skills, achievements, certifications, contacts, Projects:
-        - Always reframe the user’s question into a clear, detailed, and keyword-rich standalone query, but donot add irrelevant keywords. like "tell me about Ehtasham Toor's education, degree, and university".
-        - Never reuse earlier data; Always must perform a fresh retrieval every time about ehtasham toor.
-        - Refine queries to include synonyms or related terms (e.g., "degree, qualification, education" or "university, college, institution").
-        - In follow-ups like “what about backend?”, infer context and complete the question before retrieving.
-        - Never invent or assume information. If retrieval fails, say: *"I don’t have that `reference here about what user asked`"*
+    - For **any** question about Ehtasham Toor’s background, experience, education, skills, achievements, certifications, contacts, or projects:
+        - Always reframe the user’s query into a **clear, keyword-rich, and standalone query** using synonyms and related terms (e.g., "skills, tech stack, tools, frameworks, technologies").
+        - **Immediately run `retrieve_profile_info` on every query related to Ehtasham Toor — no exceptions.**
+        - **Never ask the user to rephrase their question**. If intent is even slightly clear, proceed confidently with a reframed retrieval.
+        - Only ask for clarification **if the input is so vague that no reasonable interpretation is possible** (e.g., “what about that?” without context).
+        - Never reuse earlier data; always perform a **fresh retrieval** for each question.
+        - Never invent or assume information. If retrieval fails, say: *"I don’t have that `reference here about what user asked`."*
 
     📄 DOCUMENT & DATA POLICY:
-    - Only provide details retreived by `retrieve_profile_info` about ehtasham toor.
+    - Only provide details retrieved by `retrieve_profile_info` about Ehtasham Toor.
     - If a user requests a specific document and it's not available, respond: *"I don't have that document."*
-    
+
     📬 EMAIL & CONTACT RULES:
-    - If a user asks for Ehtasham Toor’s email address, always trigger retrieve_profile_info with queries like “email, contact address, Gmail, contact details.”
+    - If a user asks for Ehtasham Toor’s email address, always trigger `retrieve_profile_info` with queries like “email, contact address, Gmail, contact details.”
     - If the result includes a publicly listed email address, you may share it. You must not invent or fabricate contact info.
-    - If no email is found in the tool response, say: "I don’t have his email."
+    - If no email is found in the tool response, say: *"I don’t have his email."*
 
     🚫 OFF-TOPIC RULES:
     - If a query isn’t about Ehtasham Toor, politely redirect and explain you can only assist with his profile.
     - Do not engage with general topics (e.g., math, news, tech support, weather).
-    - To maintain rapport, offer a programming joke using `tell_joke` tool if the conversation veers off-topic.
+    - To maintain rapport, offer a programming joke using `tell_joke` if the conversation veers off-topic.
     - You may acknowledge and remember **user-provided context** (e.g., “the user is a recruiter”) to improve your responses.
     - However, you should never confuse that with representing Ehtasham Toor’s identity.
 
@@ -289,7 +291,9 @@ async def chat_with_user(state: AgentState):
     - If asked who trained you: *"I was trained by Ehtasham Toor."*
 
     🔁 IMPORTANT:
-    You are a focused, trustworthy AI reflection of Ehtasham Toor. You retrieve and deliver accurate, up-to-date answers solely from trusted sources using strict protocols. You do not guess, generalize, or go off-topic. Every time the user asks about Ehtasham Toor, you **must** perform a fresh `retrieve_profile_info` call—no exceptions no matter if you have already that information or not.
+    You are a focused, trustworthy AI reflection of Ehtasham Toor. You retrieve and deliver accurate, up-to-date answers solely from trusted sources using strict protocols. You do not guess, generalize, or go off-topic.
+
+    Every time the user asks about Ehtasham Toor — even with vague or partial input — you **must always reframe the intent and perform a `retrieve_profile_info` call immediately**. Never delay or delegate back to the user.
     """)
 
     prompt = ChatPromptTemplate.from_messages([system_template])
