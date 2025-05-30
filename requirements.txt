@@ -16,3 +16,4 @@ langchain_qdrant
 langgraph-checkpoint-postgres
 pydantic
 asyncpg
+pymupdf
