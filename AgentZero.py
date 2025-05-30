@@ -16,7 +16,6 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain_google_genai import ChatGoogleGenerativeAI, GoogleGenerativeAIEmbeddings
 from langchain_qdrant import Qdrant
 from qdrant_client import QdrantClient
-# from langchain_huggingface import HuggingFaceEmbeddings
 from psycopg_pool import AsyncConnectionPool
 import psycopg
 from fastapi import FastAPI, HTTPException
@@ -26,6 +25,17 @@ from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 from fastapi.middleware.cors import CORSMiddleware
 from langchain_core.tools import tool
 
+# below are for making pdf embeddings
+from langchain_community.document_loaders import PyMuPDFLoader
+from langchain_qdrant import Qdrant
+from fastapi import UploadFile, File, Form, HTTPException
+from langchain.schema import Document
+
+from qdrant_client import QdrantClient
+from qdrant_client.models import Distance, VectorParams
+from langchain_google_genai import GoogleGenerativeAIEmbeddings
+import tempfile, shutil, re
+
 os.system("")
 load_dotenv()
 
@@ -34,7 +44,7 @@ if sys.platform == "win32":
     
 DB_URI = os.getenv("SUPABASE_DB_URL")
 origins = [
-    "https://ehtasham-portfolio.vercel.app",
+    os.getenv("FRONTEND_URL"),
     "http://localhost:5173",
 ]
 
@@ -445,3 +455,73 @@ async def query_agent(req: QueryRequest):
         question=question,
         result=result.get("messages")[-1].content if result.get("messages") else "No response generated.",
     )
+
+
+
+predefined_headings = [
+    "About", "Work Experiences", "Education", "Skills & Technologies Overview",
+    "Frontend technologies", "Backend technologies", "Databases", "Tools",
+    "Testing Tools", "AI SKILLS ", "Interests", "Other Skills", "Projects", "Links",
+]
+
+escaped_headings = sorted(predefined_headings, key=len, reverse=True)
+pattern = "|".join([re.escape(h) for h in escaped_headings])
+
+def split_by_known_headings(text):
+    matches = list(re.finditer(pattern, text))
+    chunks = []
+    for idx, match in enumerate(matches):
+        heading = match.group(0).strip()
+        start = match.start()
+        end = matches[idx + 1].start() if idx + 1 < len(matches) else len(text)
+        section_text = text[start:end].strip()
+        chunks.append(Document(page_content=section_text, metadata={"section": heading.lower().replace(" ", "_")}))
+    return chunks
+
+
+
+
+@app.post("/make_embeddings", tags=["AGENT ZERO"])
+async def upload_pdf_and_embed(file: UploadFile = File(...), password: str = Form(...)):
+    if password != os.getenv("PDF_UPLOAD_PASSWORD"):
+        raise HTTPException(status_code=401, detail="Unauthorized password.")
+
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as temp_pdf:
+        shutil.copyfileobj(file.file, temp_pdf)
+        temp_pdf_path = temp_pdf.name
+
+    try:
+        loader = PyMuPDFLoader(temp_pdf_path)
+        raw_docs = loader.load()
+        full_text = "\n".join([doc.page_content for doc in raw_docs])
+        tagged_docs = split_by_known_headings(full_text)
+        print(f"✅ Created {len(tagged_docs)} custom heading-based chunks.")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"PDF processing error: {str(e)}")
+    finally:
+        os.remove(temp_pdf_path)
+
+    try:
+        qdrant = QdrantClient(url=os.getenv("QDRANT_URL"), api_key=os.getenv("QDRANT_API_KEY"))
+
+        if qdrant.collection_exists("agentzero-docs"):
+            print("Collection exists. Deleting...")
+            qdrant.delete_collection("agentzero-docs")
+
+        qdrant.create_collection(
+            collection_name="agentzero-docs",
+            vectors_config=VectorParams(size=768, distance=Distance.COSINE)
+        )
+
+        embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-001")
+
+        vectorstore = Qdrant(
+            client=qdrant,
+            collection_name="agentzero-docs",
+            embeddings=embeddings,
+        )
+        vectorstore.add_documents(tagged_docs)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Embedding error: {str(e)}")
+
+    return {"message": "✅ Document processed and stored successfully.", "chunks": len(tagged_docs)}

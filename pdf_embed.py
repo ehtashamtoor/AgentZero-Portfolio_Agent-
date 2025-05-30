@@ -1,14 +1,11 @@
 
-from langchain_community.document_loaders import PyMuPDFLoader, PyPDFLoader
+from langchain_community.document_loaders import PyMuPDFLoader
 from langchain.schema import Document
-from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_qdrant import Qdrant
 
 from qdrant_client import QdrantClient
 from qdrant_client.models import Distance, VectorParams
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
-# from langchain_google_vertexai import VertexAIEmbeddings
-from langchain_huggingface import HuggingFaceEmbeddings
 import os, re
 from dotenv import load_dotenv
 
