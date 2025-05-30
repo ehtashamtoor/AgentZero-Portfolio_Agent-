@@ -34,7 +34,7 @@ if sys.platform == "win32":
     
 DB_URI = os.getenv("SUPABASE_DB_URL")
 origins = [
-    "http://localhost",
+    "https://ehtasham-portfolio.vercel.app",
     "http://localhost:5173",
 ]
 
