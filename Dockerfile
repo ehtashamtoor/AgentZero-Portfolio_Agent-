@@ -19,8 +19,7 @@ RUN apt-get update && apt-get install -y \
 WORKDIR /app
 
 # Copy your code to the container
-# Explicitly copy everything
-COPY . /app
+COPY . .
 
 # Install Python dependencies
 RUN pip install --no-cache-dir --upgrade pip \
@@ -31,5 +30,6 @@ RUN pip install --no-cache-dir --upgrade pip \
 EXPOSE 8000
 
 # Start the FastAPI app
-CMD ["python", "main.py"]
 # CMD ["uvicorn", "AgentZero:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "agentZeroQdrant:app", "--host", "0.0.0.0", "--port", "8000"]
+
