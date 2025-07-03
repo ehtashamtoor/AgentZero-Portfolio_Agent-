@@ -1,7 +1,7 @@
 {
   "dockerfile_lines": [],
   "graphs": {
-    "agentZero": "./simplechatagent.py:graph"
+    "agentZero": "./agentZeroQdrant.py:graph"
   },
   "env": ["OPEN_API_KEY", "TAVILY_API_KEY"],
   "dependencies": ["."]
