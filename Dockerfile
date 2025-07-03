@@ -19,7 +19,8 @@ RUN apt-get update && apt-get install -y \
 WORKDIR /app
 
 # Copy your code to the container
-COPY . .
+# Explicitly copy everything
+COPY . /app
 
 # Install Python dependencies
 RUN pip install --no-cache-dir --upgrade pip \
