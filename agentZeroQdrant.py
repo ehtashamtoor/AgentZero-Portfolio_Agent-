@@ -239,7 +239,7 @@ def send_cv() -> str:
     
     return """You can download his CV using the link below:
 
-    👉 [Download CV (PDF)](https://drive.google.com/uc?export=download&id=1fHBpB4roJ4gAgmXbmzoqna28yt7kxhvx)"""
+    👉 [Download CV (PDF)](https://drive.google.com/uc?export=download&id=1gUgHaNnCRNyynUQhyPLTxIYQp4z7PJ4J)"""
 
 llm_with_tools = llm.bind_tools(tools=[tell_joke, send_cv, retrieve_profile_info])
 
