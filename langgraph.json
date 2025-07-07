@@ -3,6 +3,6 @@
   "graphs": {
     "agentZero": "./agentZeroQdrant.py:graph"
   },
-  "env": ["OPEN_API_KEY", "TAVILY_API_KEY"],
+  "env": ["GOOGLE_API_KEY"],
   "dependencies": ["."]
 }
